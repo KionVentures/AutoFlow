@@ -494,5 +494,42 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+
+backend:
+  - task: "Stripe Integration Setup"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Stripe integration implemented with checkout session creation endpoint."
+
+  - task: "Updated Pricing Display"
+    implemented: true
+    working: true
+    file: "pages/PricingPage.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated pricing page to show new tiers: Pro 5 automations/$19, Creator 50 automations/$99."
+
+  - task: "Dashboard Usage Tracking Updates"
+    implemented: true
+    working: true
+    file: "pages/Dashboard.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated dashboard to show usage tracking for all tiers including new limits."
   - agent: "testing"
     message: "I've completed testing of all backend API endpoints. All endpoints are working correctly except for the Protected Endpoint Authentication, which returns a 403 status code instead of the expected 401 when no token is provided. This is a minor issue but should be fixed for proper HTTP status code semantics. All other functionality is working as expected, including user registration, login, automation generation (both guest and authenticated), and retrieving user automations."
