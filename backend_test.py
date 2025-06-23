@@ -33,7 +33,29 @@ TEST_USER = {
 
 TEST_AUTOMATION_REQUEST = {
     "task_description": "When someone fills out my contact form, send them a welcome email",
-    "platform": "Make.com"
+    "platform": "Make.com",
+    "ai_model": "gpt-4"
+}
+
+# Template test data
+TEMPLATE_NAMES = [
+    "Instagram Video Poster",
+    "Lead Capture Flow",
+    "Email Follow-Up Sequence",
+    "E-commerce Order Processing",
+    "Social Media Scheduler"
+]
+
+TEMPLATE_REQUEST = {
+    "task_description": "Use template: Instagram Video Poster",
+    "platform": "Make.com",
+    "ai_model": "gpt-4"
+}
+
+CLAUDE_REQUEST = {
+    "task_description": "Create a workflow that monitors Twitter for mentions of my brand and sends alerts to Slack",
+    "platform": "n8n",
+    "ai_model": "claude-3-5-sonnet-20241022"
 }
 
 # Helper functions
