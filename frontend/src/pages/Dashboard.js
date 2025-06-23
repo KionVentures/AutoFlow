@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
-import { Plus, Download, Eye, Calendar, Zap, Crown, TrendingUp } from 'lucide-react';
+import { Plus, Download, Eye, Calendar, Zap, Crown, TrendingUp, Lightbulb, Sparkles } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -10,15 +10,19 @@ const API = `${BACKEND_URL}/api`;
 const Dashboard = () => {
   const { user, isAuthenticated, token } = useAuth();
   const [automations, setAutomations] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [taskDescription, setTaskDescription] = useState('');
   const [platform, setPlatform] = useState('Make.com');
+  const [aiModel, setAiModel] = useState('gpt-4');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchAutomations();
+      fetchTemplates();
     }
   }, [isAuthenticated, token]);
 
@@ -44,6 +48,18 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      const response = await fetch(`${API}/templates`);
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates);
+      }
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  };
+
   const createAutomation = async (e) => {
     e.preventDefault();
     if (!taskDescription.trim()) {
@@ -63,6 +79,7 @@ const Dashboard = () => {
         body: JSON.stringify({
           task_description: taskDescription,
           platform: platform,
+          ai_model: aiModel,
         }),
       });
 
@@ -86,6 +103,40 @@ const Dashboard = () => {
     }
   };
 
+  const useTemplate = async (templateName) => {
+    setCreating(true);
+    try {
+      const response = await fetch(`${API}/generate-automation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_description: `Use template: ${templateName}`,
+          platform: platform,
+          ai_model: aiModel,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Template "${templateName}" added to your automations!`);
+        setAutomations([data, ...automations]);
+        setShowTemplates(false);
+        localStorage.setItem('current_automation', JSON.stringify(data));
+        window.open(`/automation/${data.id}`, '_blank');
+      } else {
+        toast.error(data.detail || 'Failed to use template');
+      }
+    } catch (error) {
+      toast.error('Error using template');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const downloadJSON = (automation) => {
     const element = document.createElement('a');
     const file = new Blob([automation.automation_json], { type: 'application/json' });
@@ -102,8 +153,15 @@ const Dashboard = () => {
   }
 
   const usagePercentage = (user?.automations_used / user?.automations_limit) * 100;
-
   const canCreateMore = user?.automations_used < user?.automations_limit;
+
+  const groupedTemplates = templates.reduce((acc, template) => {
+    if (!acc[template.category]) {
+      acc[template.category] = [];
+    }
+    acc[template.category].push(template);
+    return acc;
+  }, {});
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -117,23 +175,33 @@ const Dashboard = () => {
             </p>
           </div>
           
-          {canCreateMore ? (
+          <div className="flex space-x-3 mt-4 md:mt-0">
             <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="mt-4 md:mt-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
             >
-              <Plus className="h-5 w-5" />
-              <span>Create Automation</span>
+              <Sparkles className="h-5 w-5" />
+              <span>Templates</span>
             </button>
-          ) : (
-            <Link
-              to="/pricing"
-              className="mt-4 md:mt-0 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
-            >
-              <Crown className="h-5 w-5" />
-              <span>Upgrade Plan</span>
-            </Link>
-          )}
+            
+            {canCreateMore ? (
+              <button
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Create Custom</span>
+              </button>
+            ) : (
+              <Link
+                to="/pricing"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
+              >
+                <Crown className="h-5 w-5" />
+                <span>Upgrade Plan</span>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -202,10 +270,53 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Templates Library */}
+        {showTemplates && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <Sparkles className="h-6 w-6 mr-2 text-purple-600" />
+                Automation Templates
+              </h2>
+              <button
+                onClick={() => setShowTemplates(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+              {Object.entries(groupedTemplates).map(([category, categoryTemplates]) => (
+                <div key={category}>
+                  <h3 className="font-semibold text-gray-900 mb-2">{category}</h3>
+                  {categoryTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="border border-gray-200 rounded-lg p-4 mb-3 hover:border-blue-500 transition-colors cursor-pointer"
+                      onClick={() => useTemplate(template.name)}
+                    >
+                      <h4 className="font-medium text-blue-600 mb-1">{template.name}</h4>
+                      <p className="text-sm text-gray-600">{template.description}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {template.tags.slice(0, 3).map((tag) => (
+                          <span key={tag} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Create Automation Form */}
         {showCreateForm && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Automation</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Create Custom Automation</h2>
             <form onSubmit={createAutomation} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -221,18 +332,34 @@ const Dashboard = () => {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Platform
-                </label>
-                <select
-                  value={platform}
-                  onChange={(e) => setPlatform(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Make.com">Make.com</option>
-                  <option value="n8n">n8n</option>
-                </select>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Platform
+                  </label>
+                  <select
+                    value={platform}
+                    onChange={(e) => setPlatform(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Make.com">Make.com</option>
+                    <option value="n8n">n8n</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    AI Model
+                  </label>
+                  <select
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="gpt-4">GPT-4 (Best Overall)</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 (Better Logic)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex space-x-3">
@@ -292,9 +419,16 @@ const Dashboard = () => {
                 <div key={automation.id} className="p-6 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {automation.automation_summary}
-                      </h3>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {automation.automation_summary}
+                        </h3>
+                        {automation.is_template && (
+                          <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded-full">
+                            Template
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-600 text-sm mb-3">
                         "{automation.task_description}"
                       </p>
@@ -305,6 +439,9 @@ const Dashboard = () => {
                         </span>
                         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
                           {automation.platform}
+                        </span>
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                          {automation.ai_model === 'gpt-4' ? 'GPT-4' : 'Claude 3.5'}
                         </span>
                       </div>
                     </div>
