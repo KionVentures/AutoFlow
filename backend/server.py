@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timedelta
 import jwt
@@ -17,6 +17,7 @@ import anthropic
 import stripe
 import json
 from enum import Enum
+from workflow_engine import WorkflowConverter, WorkflowDebugger, WorkflowTroubleshooter, WorkflowPlatform, ConversionResult, WorkflowError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
