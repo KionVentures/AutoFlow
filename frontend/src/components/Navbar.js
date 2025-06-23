@@ -37,6 +37,9 @@ const Navbar = () => {
                 <Link to="/dashboard" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                   Dashboard
                 </Link>
+                <Link to="/converter" className="text-purple-600 hover:text-purple-700 px-3 py-2 rounded-md text-sm font-medium">
+                  Converter
+                </Link>
                 <div className="flex items-center space-x-2">
                   <User className="h-5 w-5 text-gray-500" />
                   <span className="text-sm text-gray-700">{user?.email}</span>

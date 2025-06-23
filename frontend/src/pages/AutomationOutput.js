@@ -20,23 +20,107 @@ const AutomationOutput = () => {
   }, [id]);
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    toast.success('JSON copied to clipboard!');
-    setTimeout(() => setCopied(false), 2000);
+    // Fallback for when Clipboard API is blocked
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const result = document.execCommand('copy');
+      if (result) {
+        setCopied(true);
+        toast.success('JSON copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        throw new Error('Copy command failed');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      // Final fallback - select the text for manual copy
+      toast.error('Please manually select and copy the JSON below');
+    } finally {
+      document.body.removeChild(textArea);
+    }
   };
 
   const downloadJSON = () => {
-    if (!automation) return;
+    if (!automation || !automation.automation_json) {
+      toast.error('No automation data available to download');
+      return;
+    }
     
-    const element = document.createElement('a');
-    const file = new Blob([automation.automation_json], { type: 'application/json' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${automation.platform.toLowerCase()}-automation-${Date.now()}.json`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success('JSON file downloaded!');
+    try {
+      const jsonString = automation.automation_json;
+      const fileName = `${automation.platform.toLowerCase().replace('.', '-')}-automation-${Date.now()}.json`;
+      
+      // Method 1: Try modern download approach
+      const blob = new Blob([jsonString], { 
+        type: 'application/json;charset=utf-8' 
+      });
+      
+      // Check if browser supports modern download
+      if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+        // For IE/Edge
+        window.navigator.msSaveOrOpenBlob(blob, fileName);
+        toast.success('JSON file downloaded!');
+        return;
+      }
+      
+      // For modern browsers
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('JSON file downloaded successfully!');
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      
+      // Fallback: Copy to clipboard and notify user
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = automation.automation_json;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        toast.success('Download failed, but JSON copied to clipboard! Paste into a text file and save as .json');
+      } catch (clipboardError) {
+        // Final fallback: Open in new window
+        try {
+          const newWindow = window.open('', '_blank');
+          newWindow.document.write(`
+            <html>
+              <head><title>Automation JSON</title></head>
+              <body>
+                <h3>Copy this JSON and save as ${automation.platform.toLowerCase().replace('.', '-')}-automation.json:</h3>
+                <pre style="white-space: pre-wrap; word-wrap: break-word;">${automation.automation_json}</pre>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+          toast.info('Download failed - JSON opened in new window. Copy and save manually.');
+        } catch (windowError) {
+          toast.error('Download failed. Please copy the JSON from the page manually.');
+        }
+      }
+    }
   };
 
   if (!automation) {

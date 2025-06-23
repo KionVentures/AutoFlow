@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
-import { Plus, Download, Eye, Calendar, Zap, Crown, TrendingUp, Lightbulb, Sparkles } from 'lucide-react';
+import { Plus, Download, Eye, Calendar, Zap, Crown, TrendingUp, Lightbulb, Sparkles, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -138,14 +138,47 @@ const Dashboard = () => {
   };
 
   const downloadJSON = (automation) => {
-    const element = document.createElement('a');
-    const file = new Blob([automation.automation_json], { type: 'application/json' });
-    element.href = URL.createObjectURL(file);
-    element.download = `${automation.platform.toLowerCase()}-automation-${Date.now()}.json`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success('JSON file downloaded!');
+    if (!automation || !automation.automation_json) {
+      toast.error('No automation data to download');
+      return;
+    }
+    
+    try {
+      // Create a more explicit download process
+      const jsonString = automation.automation_json;
+      const blob = new Blob([jsonString], { 
+        type: 'application/json;charset=utf-8' 
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${automation.platform.toLowerCase().replace('.', '-')}-automation-${Date.now()}.json`;
+      
+      // Force download by appending to DOM and clicking
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Automation JSON downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      
+      // Fallback: Open JSON in new window for manual save
+      try {
+        const jsonString = automation.automation_json;
+        const newWindow = window.open();
+        newWindow.document.write('<pre>' + jsonString + '</pre>');
+        newWindow.document.close();
+        toast.info('JSON opened in new window - save manually');
+      } catch (fallbackError) {
+        toast.error('Download failed. Please copy the JSON manually.');
+      }
+    }
   };
 
   if (!isAuthenticated) {
@@ -176,9 +209,17 @@ const Dashboard = () => {
           </div>
           
           <div className="flex space-x-3 mt-4 md:mt-0">
+            <Link
+              to="/converter"
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
+            >
+              <RefreshCw className="h-5 w-5" />
+              <span>Converter</span>
+            </Link>
+            
             <button
               onClick={() => setShowTemplates(!showTemplates)}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2"
             >
               <Sparkles className="h-5 w-5" />
               <span>Templates</span>

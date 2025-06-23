@@ -17,6 +17,7 @@ import Dashboard from './pages/Dashboard';
 import PricingPage from './pages/PricingPage';
 import AutomationOutput from './pages/AutomationOutput';
 import About from './pages/About';
+import BlueprintConverter from './pages/BlueprintConverter';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/about" element={<About />} />
+              <Route path="/converter" element={<BlueprintConverter />} />
               <Route path="/automation/:id" element={<AutomationOutput />} />
             </Routes>
           </main>

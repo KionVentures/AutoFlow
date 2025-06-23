@@ -120,6 +120,23 @@ class StripeCheckoutRequest(BaseModel):
     tier: SubscriptionTier
     user_email: EmailStr
 
+class BlueprintConversionRequest(BaseModel):
+    blueprint_json: str
+    source_platform: PlatformType
+    target_platform: PlatformType
+    ai_model: AIModel = AIModel.GPT4
+
+class BlueprintConversionResponse(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    source_platform: PlatformType
+    target_platform: PlatformType
+    ai_model: AIModel
+    original_json: str
+    converted_json: str
+    conversion_notes: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 # Pre-built Automation Templates
 AUTOMATION_TEMPLATES = {
     "Instagram Video Poster": {
@@ -1521,6 +1538,100 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="User not found")
     return User(**user)
 
+async def convert_blueprint_with_ai(blueprint_json: str, source_platform: PlatformType, target_platform: PlatformType, ai_model: AIModel) -> dict:
+    """Convert blueprint from one platform to another using AI"""
+    
+    prompt = f"""You are an expert no-code automation converter. 
+
+Convert this {source_platform} automation blueprint to {target_platform} format.
+
+SOURCE PLATFORM: {source_platform}
+TARGET PLATFORM: {target_platform}
+
+SOURCE JSON:
+{blueprint_json}
+
+Requirements:
+1. Maintain the same workflow logic and functionality
+2. Map equivalent modules/nodes between platforms
+3. Preserve all data transformations and connections
+4. Generate valid {target_platform} JSON that can be imported
+5. Include detailed conversion notes explaining any changes
+
+Respond in this EXACT format:
+
+🔄 **CONVERTED {target_platform.upper()} BLUEPRINT:**
+
+```json
+[Provide the complete converted JSON here]
+```
+
+📝 **CONVERSION NOTES:**
+- List any module mappings that were changed
+- Note any functionality differences
+- Explain any manual adjustments needed
+- Highlight any platform-specific features used
+
+The converted JSON must be valid and importable into {target_platform}."""
+
+    try:
+        if ai_model == AIModel.GPT4:
+            client = openai.OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are an expert automation platform converter. Always provide complete, functional blueprint conversions."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=3000,
+                temperature=0.3
+            )
+            content = response.choices[0].message.content
+            
+        elif ai_model == AIModel.CLAUDE:
+            response = anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=3000,
+                temperature=0.3,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            content = response.content[0].text
+        
+        # Parse the response to extract converted JSON and notes
+        lines = content.split('\n')
+        converted_json = ""
+        conversion_notes = ""
+        
+        in_json_block = False
+        in_notes_section = False
+        
+        for line in lines:
+            if '```json' in line:
+                in_json_block = True
+                continue
+            elif '```' in line and in_json_block:
+                in_json_block = False
+                continue
+            elif '📝 **CONVERSION NOTES:**' in line:
+                in_notes_section = True
+                continue
+            elif in_json_block:
+                converted_json += line + '\n'
+            elif in_notes_section:
+                conversion_notes += line + '\n'
+        
+        return {
+            "converted_json": converted_json.strip(),
+            "conversion_notes": conversion_notes.strip(),
+            "full_response": content
+        }
+        
+    except Exception as e:
+        logging.error(f"Blueprint conversion error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to convert blueprint: {str(e)}")
+
 def get_tier_limits(tier: SubscriptionTier) -> int:
     limits = {
         SubscriptionTier.FREE: 1,
@@ -1620,13 +1731,202 @@ async def generate_automation_with_ai(task_description: str, platform: PlatformT
             "template_id": template_data["id"]
         }
     
-    # Generate custom automation using AI
-    prompt = f"""You are AutoFlow AI — an expert no-code automation generator.
+    # Generate custom automation using AI with improved prompt
+    platform_examples = {
+        PlatformType.MAKE: '''Example Make.com JSON format with REAL working modules:
+{
+  "name": "Content Automation Workflow",
+  "flow": [
+    {
+      "id": 1,
+      "module": "google-sheets:WatchNewRows",
+      "version": 1,
+      "parameters": {
+        "spreadsheetId": "your-spreadsheet-id",
+        "sheetName": "Sheet1",
+        "tableFirstRow": "A1",
+        "includeEmptyRows": false
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {"x": 0, "y": 0},
+        "restore": {}
+      }
+    },
+    {
+      "id": 2,
+      "module": "openai-gpt:CreateCompletion",
+      "version": 1,
+      "parameters": {
+        "model": "gpt-4",
+        "maxTokens": 1000
+      },
+      "mapper": {
+        "prompt": "Analyze this article: {{1.url}}"
+      },
+      "metadata": {
+        "designer": {"x": 300, "y": 0},
+        "restore": {}
+      }
+    },
+    {
+      "id": 3,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "parameters": {},
+      "mapper": {},
+      "metadata": {
+        "designer": {"x": 600, "y": 0},
+        "restore": {}
+      }
+    },
+    {
+      "id": 4,
+      "module": "wordpress:CreatePost",
+      "version": 1,
+      "parameters": {
+        "status": "publish"
+      },
+      "mapper": {
+        "title": "{{2.title}}",
+        "content": "{{2.content}}"
+      },
+      "metadata": {
+        "designer": {"x": 900, "y": -100},
+        "restore": {}
+      }
+    },
+    {
+      "id": 5,
+      "module": "instagram:CreatePost",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "caption": "{{2.instagram_caption}}"
+      },
+      "metadata": {
+        "designer": {"x": 900, "y": 0},
+        "restore": {}
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "sequential": false
+    },
+    "zone": "us1.make.com"
+  }
+}
 
-The user wants to automate: "{task_description}"
-Target platform: {platform}
+CRITICAL: Use ONLY these verified Make.com modules:
+- google-sheets:WatchNewRows (watch for new Google Sheets rows)
+- google-sheets:GetRange (get data from Google Sheets)
+- openai-gpt:CreateCompletion (GPT-4 text generation)
+- openai-dalle:GenerateImage (DALL-E image generation)
+- wordpress:CreatePost (create WordPress posts)
+- wordpress:UploadMedia (upload media to WordPress)
+- instagram:CreatePost (post to Instagram)
+- tiktok:UploadVideo (upload to TikTok)
+- youtube:UploadVideo (upload to YouTube)
+- slack:PostMessage (post to Slack)
+- twitter:CreateTweet (post to Twitter)
+- builtin:BasicRouter (route to multiple paths)
+- http:ActionSendData (HTTP requests)
+- tools:SetVariable (set variables)
+- tools:Sleep (add delays)
+- json:ParseJSON (parse JSON data)''',
+        
+        PlatformType.N8N: '''Example n8n JSON format with REAL working nodes:
+{
+  "name": "Content Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "spreadsheetId": "your-spreadsheet-id",
+        "range": "Sheet1!A:Z"
+      },
+      "id": "sheets-1",
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "prompt": "Analyze this article: {{ $json.url }}",
+        "maxTokens": 1000
+      },
+      "id": "openai-1",
+      "name": "OpenAI GPT-4",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{"value1": "{{ $json.platform }}", "value2": "wordpress"}]
+        }
+      },
+      "id": "if-1",
+      "name": "Route Content",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [["OpenAI GPT-4"]]
+    },
+    "OpenAI GPT-4": {
+      "main": [["Route Content"]]
+    }
+  }
+}
 
-You must respond in this EXACT format:
+CRITICAL: Use ONLY these verified n8n nodes:
+- n8n-nodes-base.googleSheetsTrigger (watch Google Sheets)
+- n8n-nodes-base.googleSheets (read/write Google Sheets)
+- n8n-nodes-base.openAi (OpenAI GPT-4 and DALL-E)
+- n8n-nodes-base.wordpress (WordPress operations)
+- n8n-nodes-base.httpRequest (HTTP requests)
+- n8n-nodes-base.if (conditional routing)
+- n8n-nodes-base.set (set data values)
+- n8n-nodes-base.function (custom JavaScript)
+- n8n-nodes-base.merge (merge data streams)
+- n8n-nodes-base.wait (add delays)'''
+    }
+
+    prompt = f"""You are AutoFlow AI — an expert no-code automation generator. You MUST provide a complete, working JSON template using REAL modules that exist in {platform}.
+
+CRITICAL REQUIREMENTS:
+1. You must generate actual, functional JSON code using verified module names
+2. Create a COMPLEX workflow that matches the user's request exactly
+3. Use the correct modules for the services mentioned (Google Sheets, OpenAI, WordPress, etc.)
+4. Include proper routing/branching for multiple outputs
+5. Do NOT use simple webhook + HTTP fallbacks for complex requests
+
+Task: "{task_description}"
+Target Platform: {platform}
+
+ANALYSIS: This request needs these key components:
+- Google Sheets trigger (not webhook)
+- OpenAI/ChatGPT integration for content processing
+- Multiple social media endpoints
+- WordPress publishing
+- Image generation
+- Proper routing/branching
+
+{platform_examples[platform]}
+
+You must respond in this EXACT format with a COMPLEX, MULTI-STEP workflow:
 
 🚀 Automation Summary: [Brief summary of what this automation does and why it's useful]
 
@@ -1635,22 +1935,35 @@ You must respond in this EXACT format:
 📦 Required Apps:
 - [App 1: Purpose + setup note]
 - [App 2: Purpose + setup note]
+- [Continue for ALL apps mentioned in the request]
 
 📊 Automation Workflow Steps:
-1. [Step 1: Trigger]
-2. [Step 2: Action]
-3. [Step 3: Continue until complete]
+1. [Step 1: Trigger description - should match the user's trigger request]
+2. [Step 2: Action description - should match the processing needed]
+3. [Step 3: Continue for ALL steps mentioned in the user request]
+4. [Include routing/branching steps]
+5. [Include all social media and publishing steps]
 
 🧠 JSON Automation Template:
-[Provide valid JSON for {platform} that can be imported. Use proper module names and structure for the platform.]
+```json
+[PROVIDE COMPLETE, COMPLEX WORKFLOW JSON using the SPECIFIC modules for each service mentioned. This should be 5+ modules for a complex request like this, NOT just webhook + HTTP]
+```
 
 📋 Beginner Setup Instructions:
-[Detailed step-by-step instructions for importing JSON, connecting apps, and testing]
+[Detailed step-by-step instructions for importing JSON, connecting ALL the required apps, and testing]
 
 🎁 Bonus Assets:
-[Optional templates, tips, or additional resources related to this automation]
+[Optional templates, tips, or additional resources]
 
-Generate a complete, working automation that a beginner can use immediately."""
+CRITICAL: For a complex request like this, you MUST use modules like:
+- google-sheets:WatchNewRows (for Google Sheets trigger)
+- openai-gpt:CreateCompletion (for ChatGPT/GPT-4)
+- openai-dalle:GenerateImage (for DALL-E)
+- wordpress:CreatePost (for WordPress)
+- builtin:BasicRouter (for routing to multiple platforms)
+- And specific modules for each social media platform mentioned
+
+DO NOT create a simple webhook + HTTP workflow for complex requests. Create the full multi-step automation the user requested."""
 
     try:
         if ai_model == AIModel.GPT4:
@@ -1658,11 +1971,11 @@ Generate a complete, working automation that a beginner can use immediately."""
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are an expert automation builder. Always provide complete, functional automation templates with beginner-friendly instructions."},
+                    {"role": "system", "content": "You are an expert automation builder. You MUST always provide complete, functional JSON automation templates. Never say you cannot provide JSON. Always generate working code."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=2500,
-                temperature=0.7
+                temperature=0.5
             )
             content = response.choices[0].message.content
             
@@ -1670,7 +1983,7 @@ Generate a complete, working automation that a beginner can use immediately."""
             response = anthropic_client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=2500,
-                temperature=0.7,
+                temperature=0.5,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -1688,45 +2001,63 @@ Generate a complete, working automation that a beginner can use immediately."""
         
         current_section = ""
         json_started = False
+        json_lines = []
         
         for line in lines:
-            line = line.strip()
-            if line.startswith('🚀 Automation Summary:'):
-                automation_summary = line.replace('🚀 Automation Summary:', '').strip()
+            line_stripped = line.strip()
+            if line_stripped.startswith('🚀 Automation Summary:'):
+                automation_summary = line_stripped.replace('🚀 Automation Summary:', '').strip()
                 current_section = "summary"
-            elif line.startswith('📦 Required Apps:'):
+            elif line_stripped.startswith('📦 Required Apps:'):
                 current_section = "tools"
-            elif line.startswith('📊 Automation Workflow Steps:'):
+            elif line_stripped.startswith('📊 Automation Workflow Steps:'):
                 current_section = "steps"
-            elif line.startswith('🧠 JSON Automation Template:'):
+            elif line_stripped.startswith('🧠 JSON Automation Template:'):
                 current_section = "json"
+            elif '```json' in line_stripped:
                 json_started = True
-            elif line.startswith('📋 Beginner Setup Instructions:'):
+                continue
+            elif '```' in line_stripped and json_started:
+                json_started = False
+                automation_json = '\n'.join(json_lines)
+                break
+            elif line_stripped.startswith('📋 Beginner Setup Instructions:'):
                 current_section = "instructions"
                 json_started = False
-            elif line.startswith('🎁 Bonus Assets:'):
+            elif line_stripped.startswith('🎁 Bonus Assets:'):
                 current_section = "bonus"
-            elif current_section == "tools" and line.startswith('- '):
-                required_tools.append(line[2:])
-            elif current_section == "steps" and (line.startswith('1.') or line.startswith('2.') or line.startswith('3.') or line.startswith('4.') or line.startswith('5.') or line.startswith('6.') or line.startswith('7.') or line.startswith('8.') or line.startswith('9.')):
-                workflow_steps.append(line)
-            elif current_section == "json" and json_started:
-                if line and not line.startswith('📋'):
-                    automation_json += line + '\n'
+            elif current_section == "tools" and line_stripped.startswith('- '):
+                required_tools.append(line_stripped[2:])
+            elif current_section == "steps" and any(line_stripped.startswith(f'{i}.') for i in range(1, 10)):
+                workflow_steps.append(line_stripped)
+            elif json_started:
+                json_lines.append(line)
             elif current_section == "instructions":
-                if line and not line.startswith('🎁'):
+                if line_stripped and not line_stripped.startswith('🎁'):
                     setup_instructions += line + '\n'
             elif current_section == "bonus":
                 bonus_content += line + '\n'
+        
+        # Fallback JSON if AI didn't provide proper JSON
+        if not automation_json or "not possible" in automation_json.lower() or "limitations" in automation_json.lower():
+            automation_json = generate_fallback_json(task_description, platform)
+            logging.warning(f"AI failed to generate JSON, using fallback for: {task_description}")
+        
+        # Validate JSON
+        try:
+            json.loads(automation_json)
+        except json.JSONDecodeError:
+            automation_json = generate_fallback_json(task_description, platform)
+            logging.warning(f"Invalid JSON generated, using fallback for: {task_description}")
         
         # Enhance setup instructions with platform-specific guidance
         enhanced_instructions = enhance_setup_instructions(setup_instructions.strip(), platform)
         
         return {
-            "automation_summary": automation_summary,
-            "required_tools": required_tools,
-            "workflow_steps": workflow_steps,
-            "automation_json": automation_json.strip(),
+            "automation_summary": automation_summary or f"Custom automation for: {task_description}",
+            "required_tools": required_tools or ["Webhook - Trigger automation", "HTTP Request - Send data"],
+            "workflow_steps": workflow_steps or ["1. Trigger: Receive webhook data", "2. Process: Transform data", "3. Action: Send to destination"],
+            "automation_json": automation_json,
             "setup_instructions": enhanced_instructions,
             "bonus_content": bonus_content.strip() if bonus_content.strip() else None,
             "is_template": False,
@@ -1735,7 +2066,164 @@ Generate a complete, working automation that a beginner can use immediately."""
         
     except Exception as e:
         logging.error(f"AI API error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate automation: {str(e)}")
+        # Return fallback automation on any error
+        return {
+            "automation_summary": f"Basic automation for: {task_description}",
+            "required_tools": ["Webhook - Trigger automation", "HTTP Request - Send data"],
+            "workflow_steps": ["1. Trigger: Receive webhook data", "2. Process: Transform data", "3. Action: Send to destination"],
+            "automation_json": generate_fallback_json(task_description, platform),
+            "setup_instructions": enhance_setup_instructions("Follow platform-specific import instructions below.", platform),
+            "bonus_content": None,
+            "is_template": False,
+            "template_id": None
+        }
+
+def generate_fallback_json(task_description: str, platform: PlatformType) -> str:
+    """Generate fallback JSON with REAL working modules"""
+    if platform == PlatformType.MAKE:
+        return json.dumps({
+            "name": f"Automation - {task_description[:30]}",
+            "flow": [
+                {
+                    "id": 1,
+                    "module": "gateway:CustomWebHook",
+                    "version": 1,
+                    "parameters": {
+                        "hook": 151971,
+                        "maxResults": 1
+                    },
+                    "mapper": {},
+                    "metadata": {
+                        "designer": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "restore": {
+                            "hook": {
+                                "data": {
+                                    "editable": "true"
+                                },
+                                "label": "My webhook"
+                            }
+                        },
+                        "expect": [
+                            {
+                                "name": "data",
+                                "type": "collection",
+                                "label": "Data",
+                                "spec": []
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": 2,
+                    "module": "http:ActionSendData",
+                    "version": 3,
+                    "parameters": {
+                        "handleErrors": False,
+                        "useNewZLibDeCompress": True
+                    },
+                    "mapper": {
+                        "url": "https://httpbin.org/post",
+                        "method": "POST",
+                        "headers": [],
+                        "qs": [],
+                        "bodyType": "application/json",
+                        "body": '{{"task": "{}", "data": "{{1.data}}" }}'.format(task_description)
+                    },
+                    "metadata": {
+                        "designer": {
+                            "x": 300,
+                            "y": 0
+                        },
+                        "restore": {
+                            "method": {
+                                "label": "POST"
+                            },
+                            "bodyType": {
+                                "label": "JSON (application/json)"
+                            }
+                        },
+                        "expect": [
+                            {
+                                "name": "url",
+                                "type": "url",
+                                "label": "URL",
+                                "required": True
+                            }
+                        ]
+                    }
+                }
+            ],
+            "metadata": {
+                "instant": False,
+                "version": 1,
+                "scenario": {
+                    "roundtrips": 1,
+                    "maxErrors": 3,
+                    "autoCommit": True,
+                    "autoCommitTriggerLast": True,
+                    "sequential": False,
+                    "slots": None,
+                    "confidential": False,
+                    "dataloss": False,
+                    "dlq": False,
+                    "freshVariables": False
+                },
+                "designer": {
+                    "orphans": []
+                },
+                "zone": "us1.make.com"
+            }
+        }, indent=2)
+    else:  # n8n
+        return json.dumps({
+            "name": f"Automation - {task_description[:30]}",
+            "nodes": [
+                {
+                    "parameters": {
+                        "httpMethod": "POST",
+                        "path": "webhook",
+                        "options": {}
+                    },
+                    "id": "webhook-node-1",
+                    "name": "Webhook",
+                    "type": "n8n-nodes-base.webhook",
+                    "typeVersion": 1,
+                    "position": [240, 300],
+                    "webhookId": "auto-generated"
+                },
+                {
+                    "parameters": {
+                        "url": "https://httpbin.org/post",
+                        "sendBody": True,
+                        "bodyContentType": "json",
+                        "jsonBody": '{{"task": "{}", "data": "{{ $json }}" }}'.format(task_description),
+                        "options": {}
+                    },
+                    "id": "http-node-1",
+                    "name": "HTTP Request",
+                    "type": "n8n-nodes-base.httpRequest",
+                    "typeVersion": 3,
+                    "position": [460, 300]
+                }
+            ],
+            "connections": {
+                "Webhook": {
+                    "main": [
+                        [
+                            {
+                                "node": "HTTP Request",
+                                "type": "main",
+                                "index": 0
+                            }
+                        ]
+                    ]
+                }
+            },
+            "pinData": {}
+        }, indent=2)
 
 # Routes
 @api_router.get("/")
@@ -1967,6 +2455,54 @@ async def generate_automation_guest(request: AutomationRequest):
 async def get_my_automations(current_user: User = Depends(get_current_user)):
     automations = await db.automations.find({"user_id": current_user.id}).sort("created_at", -1).to_list(100)
     return [AutomationResponse(**automation) for automation in automations]
+
+@api_router.post("/convert-blueprint", response_model=BlueprintConversionResponse)
+async def convert_blueprint(request: BlueprintConversionRequest, current_user: User = Depends(get_current_user)):
+    """Convert blueprint between Make.com and n8n (Pro feature)"""
+    
+    # Check if user has Pro or Creator tier
+    if current_user.subscription_tier == SubscriptionTier.FREE:
+        raise HTTPException(status_code=403, detail="Blueprint conversion is a Pro feature. Please upgrade your subscription.")
+    
+    # Validate that source and target platforms are different
+    if request.source_platform == request.target_platform:
+        raise HTTPException(status_code=400, detail="Source and target platforms must be different")
+    
+    # Validate JSON format
+    try:
+        json.loads(request.blueprint_json)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format in blueprint")
+    
+    # Convert blueprint using AI
+    conversion_data = await convert_blueprint_with_ai(
+        request.blueprint_json, 
+        request.source_platform, 
+        request.target_platform, 
+        request.ai_model
+    )
+    
+    # Create conversion record
+    conversion = BlueprintConversionResponse(
+        user_id=current_user.id,
+        source_platform=request.source_platform,
+        target_platform=request.target_platform,
+        ai_model=request.ai_model,
+        original_json=request.blueprint_json,
+        converted_json=conversion_data["converted_json"],
+        conversion_notes=conversion_data["conversion_notes"]
+    )
+    
+    # Save to database
+    await db.blueprint_conversions.insert_one(conversion.dict())
+    
+    return conversion
+
+@api_router.get("/my-conversions", response_model=List[BlueprintConversionResponse])
+async def get_my_conversions(current_user: User = Depends(get_current_user)):
+    """Get user's blueprint conversions"""
+    conversions = await db.blueprint_conversions.find({"user_id": current_user.id}).sort("created_at", -1).to_list(50)
+    return [BlueprintConversionResponse(**conversion) for conversion in conversions]
 
 @api_router.get("/me")
 async def get_current_user_info(current_user: User = Depends(get_current_user)):

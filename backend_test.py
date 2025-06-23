@@ -38,6 +38,63 @@ TEST_AUTOMATION_REQUEST = {
     "user_email": generate_random_email()
 }
 
+# Blueprint test data
+MAKE_BLUEPRINT_JSON = """{
+  "name": "Test Workflow",
+  "flow": [
+    {
+      "id": 1,
+      "module": "webhook:webhook",
+      "parameters": {}
+    },
+    {
+      "id": 2,
+      "module": "email:send",
+      "parameters": {
+        "to": "{{1.data.email}}",
+        "subject": "Thank you for contacting us",
+        "text": "We received your message and will get back to you soon."
+      }
+    }
+  ]
+}"""
+
+N8N_BLUEPRINT_JSON = """{
+  "name": "Test Workflow", 
+  "nodes": [
+    {
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [460, 300],
+      "parameters": {
+        "to": "={{ $json.email }}",
+        "subject": "Thank you for contacting us",
+        "text": "We received your message and will get back to you soon."
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [["Send Email"]]
+    }
+  }
+}"""
+
+INVALID_JSON = """{
+  "name": "Invalid JSON,
+  "flow": [
+    {
+      "id": 1
+      "module": "webhook:webhook",
+    }
+  ]
+}"""
+
 # Template test data
 TEMPLATE_NAMES = [
     "Instagram Video Poster",
@@ -521,6 +578,23 @@ def test_template_recognition():
         
         # Verify template_id exists
         success = assert_field_exists(response_json, "template_id") and success
+        
+        # Verify automation_json is valid JSON
+        success = assert_field_exists(response_json, "automation_json") and success
+        try:
+            json_content = json.loads(response_json["automation_json"])
+            print("✅ automation_json contains valid JSON")
+            
+            # Check that it's not an error message
+            json_str = response_json["automation_json"].lower()
+            if "due to the complexity" in json_str or "not possible" in json_str:
+                print("❌ automation_json contains error messages instead of valid JSON")
+                success = False
+            else:
+                print("✅ automation_json contains actual JSON content, not error messages")
+        except json.JSONDecodeError:
+            print("❌ automation_json is not valid JSON")
+            success = False
     
     return success
 
@@ -551,6 +625,293 @@ def test_ai_model_selection():
         
         success = assert_field_equals(gpt4_json, "ai_model", "gpt-4") and success
         success = assert_field_equals(claude_json, "ai_model", "claude-3-5-sonnet-20241022") and success
+    
+    return success
+
+def test_json_generation_custom():
+    """Test JSON generation for custom automations"""
+    print_test_header("JSON Generation for Custom Automations")
+    
+    # Test with Make.com
+    make_request = {
+        "task_description": "Send email when form is submitted",
+        "platform": "Make.com",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    make_response = requests.post(f"{API_URL}/generate-automation-guest", json=make_request)
+    print("Make.com Response:")
+    print_response(make_response)
+    
+    # Test with n8n
+    n8n_request = {
+        "task_description": "Send email when form is submitted",
+        "platform": "n8n",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    n8n_response = requests.post(f"{API_URL}/generate-automation-guest", json=n8n_request)
+    print("n8n Response:")
+    print_response(n8n_response)
+    
+    success = assert_status_code(make_response, 200) and assert_status_code(n8n_response, 200)
+    success = assert_json_response(make_response) and assert_json_response(n8n_response) and success
+    
+    if success:
+        # Check Make.com response
+        make_json = make_response.json()
+        success = assert_field_exists(make_json, "automation_json") and success
+        
+        try:
+            make_content = json.loads(make_json["automation_json"])
+            print("✅ Make.com automation_json contains valid JSON")
+            
+            # Check that it's not an error message
+            json_str = make_json["automation_json"].lower()
+            if "due to the complexity" in json_str or "not possible" in json_str:
+                print("❌ Make.com automation_json contains error messages instead of valid JSON")
+                success = False
+            else:
+                print("✅ Make.com automation_json contains actual JSON content, not error messages")
+                
+            # Check for proper structure
+            if "name" in make_content and "flow" in make_content and "metadata" in make_content:
+                print("✅ Make.com JSON has proper structure (name, flow, metadata)")
+            else:
+                print("❌ Make.com JSON missing required structure elements")
+                success = False
+                
+            # Check for realistic module names
+            if "flow" in make_content and len(make_content["flow"]) > 0:
+                has_modules = any("module" in item for item in make_content["flow"])
+                if has_modules:
+                    print("✅ Make.com JSON contains modules with names")
+                else:
+                    print("❌ Make.com JSON doesn't contain proper module names")
+                    success = False
+        except json.JSONDecodeError:
+            print("❌ Make.com automation_json is not valid JSON")
+            success = False
+            
+        # Check n8n response
+        n8n_json = n8n_response.json()
+        success = assert_field_exists(n8n_json, "automation_json") and success
+        
+        try:
+            n8n_content = json.loads(n8n_json["automation_json"])
+            print("✅ n8n automation_json contains valid JSON")
+            
+            # Check that it's not an error message
+            json_str = n8n_json["automation_json"].lower()
+            if "due to the complexity" in json_str or "not possible" in json_str:
+                print("❌ n8n automation_json contains error messages instead of valid JSON")
+                success = False
+            else:
+                print("✅ n8n automation_json contains actual JSON content, not error messages")
+                
+            # Check for proper structure
+            if "name" in n8n_content and "nodes" in n8n_content and "connections" in n8n_content:
+                print("✅ n8n JSON has proper structure (name, nodes, connections)")
+            else:
+                print("❌ n8n JSON missing required structure elements")
+                success = False
+                
+            # Check for realistic node types
+            if "nodes" in n8n_content and len(n8n_content["nodes"]) > 0:
+                has_types = any("type" in item for item in n8n_content["nodes"])
+                if has_types:
+                    print("✅ n8n JSON contains nodes with types")
+                else:
+                    print("❌ n8n JSON doesn't contain proper node types")
+                    success = False
+        except json.JSONDecodeError:
+            print("❌ n8n automation_json is not valid JSON")
+            success = False
+    
+    return success
+
+def test_fallback_json_generation():
+    """Test fallback JSON generation when AI fails"""
+    print_test_header("Fallback JSON Generation")
+    
+    # Create a request that might trigger fallback (complex task)
+    complex_request = {
+        "task_description": "Create a complex multi-step workflow that integrates with 15 different systems, processes data through machine learning models, and implements advanced business logic with conditional branching based on real-time market data analysis",
+        "platform": "Make.com",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    response = requests.post(f"{API_URL}/generate-automation-guest", json=complex_request)
+    print_response(response)
+    
+    success = assert_status_code(response, 200)
+    success = assert_json_response(response) and success
+    
+    if success:
+        response_json = response.json()
+        success = assert_field_exists(response_json, "automation_json") and success
+        
+        try:
+            json_content = json.loads(response_json["automation_json"])
+            print("✅ automation_json contains valid JSON even for complex request")
+            
+            # Check for basic structure
+            if "name" in json_content and ("flow" in json_content or "nodes" in json_content):
+                print("✅ JSON has proper structure even for complex request")
+            else:
+                print("❌ JSON missing required structure elements")
+                success = False
+                
+            # Check for webhook module (common in fallback)
+            if "flow" in json_content and len(json_content["flow"]) > 0:
+                has_webhook = any("webhook" in str(item.get("module", "")).lower() for item in json_content["flow"])
+                if has_webhook:
+                    print("✅ JSON contains webhook module as expected in fallback")
+                else:
+                    print("❌ JSON doesn't contain expected webhook module")
+            elif "nodes" in json_content and len(json_content["nodes"]) > 0:
+                has_webhook = any("webhook" in str(item.get("type", "")).lower() for item in json_content["nodes"])
+                if has_webhook:
+                    print("✅ JSON contains webhook node as expected in fallback")
+                else:
+                    print("❌ JSON doesn't contain expected webhook node")
+        except json.JSONDecodeError:
+            print("❌ automation_json is not valid JSON")
+            success = False
+    
+    return success
+
+def test_ai_model_json_generation():
+    """Test JSON generation with different AI models"""
+    print_test_header("AI Model JSON Generation")
+    
+    # Test with GPT-4
+    gpt4_request = {
+        "task_description": "Send email when form is submitted",
+        "platform": "Make.com",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    gpt4_response = requests.post(f"{API_URL}/generate-automation-guest", json=gpt4_request)
+    print("GPT-4 Response:")
+    print_response(gpt4_response)
+    
+    # Test with Claude
+    claude_request = {
+        "task_description": "Send email when form is submitted",
+        "platform": "Make.com",
+        "ai_model": "claude-3-5-sonnet-20241022",
+        "user_email": generate_random_email()
+    }
+    
+    claude_response = requests.post(f"{API_URL}/generate-automation-guest", json=claude_request)
+    print("Claude Response:")
+    print_response(claude_response)
+    
+    success = assert_status_code(gpt4_response, 200) and assert_status_code(claude_response, 200)
+    success = assert_json_response(gpt4_response) and assert_json_response(claude_response) and success
+    
+    if success:
+        # Check GPT-4 response
+        gpt4_json = gpt4_response.json()
+        success = assert_field_exists(gpt4_json, "automation_json") and success
+        success = assert_field_equals(gpt4_json, "ai_model", "gpt-4") and success
+        
+        try:
+            json.loads(gpt4_json["automation_json"])
+            print("✅ GPT-4 automation_json contains valid JSON")
+        except json.JSONDecodeError:
+            print("❌ GPT-4 automation_json is not valid JSON")
+            success = False
+            
+        # Check Claude response
+        claude_json = claude_response.json()
+        success = assert_field_exists(claude_json, "automation_json") and success
+        success = assert_field_equals(claude_json, "ai_model", "claude-3-5-sonnet-20241022") and success
+        
+        try:
+            json.loads(claude_json["automation_json"])
+            print("✅ Claude automation_json contains valid JSON")
+        except json.JSONDecodeError:
+            print("❌ Claude automation_json is not valid JSON")
+            success = False
+    
+    return success
+
+def test_template_json_verification():
+    """Test JSON generation for templates with different platforms"""
+    print_test_header("Template JSON Verification")
+    
+    # Test with Make.com
+    make_request = {
+        "task_description": "Use template: Instagram Video Poster",
+        "platform": "Make.com",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    make_response = requests.post(f"{API_URL}/generate-automation-guest", json=make_request)
+    print("Make.com Template Response:")
+    print_response(make_response)
+    
+    # Test with n8n
+    n8n_request = {
+        "task_description": "Use template: Instagram Video Poster",
+        "platform": "n8n",
+        "ai_model": "gpt-4",
+        "user_email": generate_random_email()
+    }
+    
+    n8n_response = requests.post(f"{API_URL}/generate-automation-guest", json=n8n_request)
+    print("n8n Template Response:")
+    print_response(n8n_response)
+    
+    success = assert_status_code(make_response, 200) and assert_status_code(n8n_response, 200)
+    success = assert_json_response(make_response) and assert_json_response(n8n_response) and success
+    
+    if success:
+        # Check Make.com response
+        make_json = make_response.json()
+        success = assert_field_exists(make_json, "automation_json") and success
+        success = assert_field_equals(make_json, "is_template", True) and success
+        
+        # Check n8n response
+        n8n_json = n8n_response.json()
+        success = assert_field_exists(n8n_json, "automation_json") and success
+        success = assert_field_equals(n8n_json, "is_template", True) and success
+        
+        # Verify the JSON is different for each platform
+        if make_json["automation_json"] != n8n_json["automation_json"]:
+            print("✅ Template JSON is different for Make.com and n8n")
+        else:
+            print("❌ Template JSON is the same for both platforms")
+            success = False
+            
+        # Verify both are valid JSON
+        try:
+            make_content = json.loads(make_json["automation_json"])
+            n8n_content = json.loads(n8n_json["automation_json"])
+            print("✅ Both template JSONs are valid")
+            
+            # Check for proper structure
+            if "name" in make_content and "flow" in make_content:
+                print("✅ Make.com template JSON has proper structure")
+            else:
+                print("❌ Make.com template JSON missing required structure elements")
+                success = False
+                
+            if "name" in n8n_content and "nodes" in n8n_content and "connections" in n8n_content:
+                print("✅ n8n template JSON has proper structure")
+            else:
+                print("❌ n8n template JSON missing required structure elements")
+                success = False
+        except json.JSONDecodeError:
+            print("❌ One or both template JSONs are not valid")
+            success = False
     
     return success
 
@@ -743,6 +1104,18 @@ def run_all_tests():
         
         # Test subscription tier limits
         results["subscription_tier_limits"] = test_subscription_tier_limits()
+        
+        # Test JSON generation for custom automations
+        results["json_generation_custom"] = test_json_generation_custom()
+        
+        # Test fallback JSON generation
+        results["fallback_json_generation"] = test_fallback_json_generation()
+        
+        # Test AI model JSON generation
+        results["ai_model_json_generation"] = test_ai_model_json_generation()
+        
+        # Test template JSON verification
+        results["template_json_verification"] = test_template_json_verification()
     else:
         print("⚠️ Skipping remaining tests because user registration failed")
     
