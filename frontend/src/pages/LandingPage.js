@@ -39,6 +39,11 @@ const LandingPage = () => {
       return;
     }
 
+    if (!email.trim()) {
+      toast.error('Please enter your email to receive your automation');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -51,7 +56,7 @@ const LandingPage = () => {
           task_description: taskDescription,
           platform: platform,
           ai_model: aiModel,
-          user_email: email || null,
+          user_email: email,
         }),
       });
 
