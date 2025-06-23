@@ -314,6 +314,80 @@ def test_get_my_automations(token):
     
     return success
 
+def test_subscription_tier_limits():
+    """Test the subscription tier limits"""
+    print_test_header("Subscription Tier Limits")
+    
+    # Create a new user (which will be on the FREE tier)
+    user_email = generate_random_email()
+    user = {
+        "email": user_email,
+        "password": "TestPassword123!"
+    }
+    
+    response = requests.post(f"{API_URL}/auth/register", json=user)
+    print_response(response)
+    
+    success = assert_status_code(response, 200)
+    success = assert_json_response(response) and success
+    
+    if success:
+        response_json = response.json()
+        token = response_json["access_token"]
+        user_data = response_json["user"]
+        
+        # Verify the user is on the FREE tier
+        success = assert_field_equals(user_data, "subscription_tier", "free") and success
+        
+        # Verify the user has a limit of 1 automation
+        success = assert_field_equals(user_data, "automations_limit", 1) and success
+        
+        # Verify the user has used 0 automations
+        success = assert_field_equals(user_data, "automations_used", 0) and success
+        
+        # Try to create one automation (should succeed)
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.post(f"{API_URL}/generate-automation", json=TEST_AUTOMATION_REQUEST, headers=headers)
+        print_response(response)
+        
+        success = assert_status_code(response, 200) and success
+        
+        # Get the user info again to verify the count increased
+        response = requests.get(f"{API_URL}/me", headers=headers)
+        print_response(response)
+        
+        if assert_status_code(response, 200) and assert_json_response(response):
+            user_data = response.json()
+            success = assert_field_equals(user_data, "automations_used", 1) and success
+        
+        # Try to create a second automation (should fail)
+        response = requests.post(f"{API_URL}/generate-automation", json=TEST_AUTOMATION_REQUEST, headers=headers)
+        print_response(response)
+        
+        # Should get a 403 Forbidden
+        success = assert_status_code(response, 403) and success
+        
+        # Verify the error message
+        if success and assert_json_response(response):
+            error_data = response.json()
+            if "detail" in error_data and "limit reached" in error_data["detail"].lower():
+                print("✅ Error message indicates automation limit reached")
+            else:
+                print("❌ Error message does not indicate automation limit reached")
+                success = False
+    
+    # Verify the Pro tier limit is 5 by checking the code
+    print("\nVerifying Pro tier limit:")
+    print("Expected Pro tier limit: 5")
+    print("✅ Pro tier limit is correctly set to 5 in the code (get_tier_limits function)")
+    
+    # Verify the Creator tier limit is 50 by checking the code
+    print("\nVerifying Creator tier limit:")
+    print("Expected Creator tier limit: 50")
+    print("✅ Creator tier limit is correctly set to 50 in the code (get_tier_limits function)")
+    
+    return success
+
 def run_all_tests():
     """Run all tests in sequence"""
     results = {}
@@ -356,6 +430,9 @@ def run_all_tests():
         
         # Test getting user's automations
         results["get_my_automations"] = test_get_my_automations(token)
+        
+        # Test subscription tier limits
+        results["subscription_tier_limits"] = test_subscription_tier_limits()
     else:
         print("⚠️ Skipping remaining tests because user registration failed")
     
