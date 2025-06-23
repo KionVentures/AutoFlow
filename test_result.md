@@ -237,17 +237,17 @@ backend:
         agent: "testing"
         comment: "MongoDB integration working correctly, storing users and automations with UUID primary keys."
 
-  - task: "Stripe Integration Setup"
+  - task: "Subscription Tier Limits"
     implemented: true
     working: true
     file: "server.py"
     stuck_count: 0
-    priority: "medium"
-    needs_retesting: false
+    priority: "high"
+    needs_retesting: true
     status_history:
       - working: true
         agent: "main"
-        comment: "Stripe integration implemented with checkout session creation endpoint."
+        comment: "Updated pricing tiers: Pro = 5 automations/$19, Creator = 50 automations/$99. Need to retest usage validation."
 
 frontend:
   - task: "Landing Page with Automation Form"
