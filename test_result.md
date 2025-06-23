@@ -240,14 +240,17 @@ backend:
   - task: "Subscription Tier Limits"
     implemented: true
     working: true
-    file: "server.py"
+    file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated pricing tiers: Pro = 5 automations/$19, Creator = 50 automations/$99. Need to retest usage validation."
+      - working: true
+        agent: "testing"
+        comment: "Verified that Free tier has 1 automation limit, Pro tier has 5 automation limit, and Creator tier has 50 automation limit. Tested that users cannot exceed their tier limits and receive appropriate error messages."
 
 frontend:
   - task: "Landing Page with Automation Form"
