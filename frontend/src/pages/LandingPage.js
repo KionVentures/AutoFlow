@@ -218,8 +218,8 @@ const LandingPage = () => {
               </form>
 
               <p className="text-sm text-gray-500 mt-4">
-                Free tier: 1 automation • 
-                <a href="/register" className="text-blue-600 hover:underline ml-1">Sign up</a> for more
+                Enter your email to receive your automation template • 
+                <a href="/register" className="text-blue-600 hover:underline ml-1">Sign up</a> to save and manage multiple automations
               </p>
             </div>
           </div>
