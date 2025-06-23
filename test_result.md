@@ -357,6 +357,8 @@ agent_communication:
     message: "Built complete AutoFlow AI SaaS application with backend API, frontend React app, OpenAI integration, MongoDB persistence, JWT authentication, and Stripe payment setup. Backend testing completed with 95% success rate."
   - agent: "testing"
     message: "Completed comprehensive backend API testing. All core functionality working correctly. Minor issue with protected endpoint authentication status code (returns 403 instead of 401). Created backend_test.py script for future testing."
+  - agent: "testing"
+    message: "Verified subscription tier limits: Free tier has 1 automation limit, Pro tier has 5 automation limit (changed from 10), and Creator tier has 50 automation limit (changed from unlimited). All tier limits are correctly enforced, and users receive appropriate error messages when they reach their limits."
 
 user_problem_statement: "Test the AutoFlow AI backend API endpoints to ensure they're working correctly"
 
