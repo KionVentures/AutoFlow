@@ -1832,8 +1832,11 @@ async def login(user_data: UserLogin):
 
 @api_router.post("/generate-automation", response_model=AutomationResponse)
 async def generate_automation(request: AutomationRequest, current_user: User = Depends(get_current_user)):
-    # Check usage limits
-    if current_user.automations_used >= current_user.automations_limit:
+    # Check if this is a template request first
+    is_template, template_name = is_template_request(request.task_description)
+    
+    # Only check usage limits for custom automations, not templates
+    if not is_template and current_user.automations_used >= current_user.automations_limit:
         raise HTTPException(status_code=403, detail="Automation limit reached. Please upgrade your subscription.")
     
     # Generate automation using specified AI
