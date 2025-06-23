@@ -101,7 +101,7 @@ const LandingPage = () => {
               <span className="text-blue-600"> Automation</span> — Instantly
             </h1>
             <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
-              Describe your task in plain English. We'll generate a ready-to-use automation template
+              Enter your email and describe your task in plain English. We'll generate a ready-to-use automation template
               for Make.com or n8n, complete with setup instructions and JSON files.
             </p>
 
