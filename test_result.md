@@ -386,7 +386,7 @@ agent_communication:
 user_problem_statement: "Test the AutoFlow AI backend API endpoints to ensure they're working correctly"
 
 backend:
-  - task: "API Health Check"
+  - task: "Pre-Built Templates Library"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -396,9 +396,9 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/ endpoint returns 200 OK with expected JSON response containing message and version fields."
+        comment: "Successfully tested GET /api/templates endpoint which returns all 5 templates as expected. GET /api/templates/{template_name} correctly returns specific template with all required fields (automation_summary, required_tools, workflow_steps, platform-specific JSON, setup_instructions, bonus_content)."
 
-  - task: "User Registration"
+  - task: "Platform Toggle Handling"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -408,21 +408,21 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "POST /api/auth/register successfully creates a new user and returns a valid JWT token along with user details."
+        comment: "Successfully tested platform toggle functionality. Automation generation with platform='Make.com' returns Make-specific JSON, and platform='n8n' returns n8n-specific JSON. Template retrieval with different platforms correctly returns platform-specific JSON formats. Setup instructions include platform-specific import guides."
 
-  - task: "User Login"
+  - task: "Template Recognition & Usage"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
-      - working: true
+      - working: false
         agent: "testing"
-        comment: "POST /api/auth/login successfully authenticates a user with valid credentials and returns a JWT token."
+        comment: "Template recognition works correctly - task_description='Use template: Instagram Video Poster' correctly identifies and returns the template with is_template=true. However, there's an issue with template usage not counting toward limits. Templates are correctly marked with is_template=true, but when a user tries to use a template after reaching their limit, they still get a 403 error. Templates should be usable even when a user has reached their automation limit."
 
-  - task: "Get Current User"
+  - task: "Multiple AI Models"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -432,7 +432,19 @@ backend:
     status_history:
       - working: true
         agent: "testing"
-        comment: "GET /api/me successfully returns the current user's information when provided with a valid JWT token."
+        comment: "Successfully tested automation generation with both ai_model='gpt-4' and ai_model='claude-3-5-sonnet-20241022'. Both models generate proper automation responses. AI model choice is correctly stored and returned in the automation response."
+
+  - task: "Enhanced Setup Instructions"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Successfully verified that all automations include detailed platform-specific setup instructions. Instructions include JSON import steps for both Make.com and n8n with beginner-friendly language and step-by-step guides."
 
   - task: "Protected Endpoint Authentication"
     implemented: true
