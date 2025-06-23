@@ -495,7 +495,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Protected Endpoint Authentication"
+    - "Frontend User Flow Testing"
+    - "End-to-End Automation Generation"
   stuck_tasks:
     - "Protected Endpoint Authentication"
   test_all: false
