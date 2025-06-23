@@ -180,29 +180,27 @@ const Dashboard = () => {
         </div>
 
         {/* Usage Progress */}
-        {user?.subscription_tier !== 'creator' && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Monthly Usage</span>
-              <span className="text-sm text-gray-500">
-                {user?.automations_used}/{user?.automations_limit} automations
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className={`h-2 rounded-full ${
-                  usagePercentage >= 80 ? 'bg-red-600' : usagePercentage >= 60 ? 'bg-yellow-600' : 'bg-blue-600'
-                }`}
-                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
-              ></div>
-            </div>
-            {usagePercentage >= 80 && (
-              <p className="text-sm text-red-600 mt-2">
-                You're running low on automations. <Link to="/pricing" className="underline">Consider upgrading</Link>.
-              </p>
-            )}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-700">Monthly Usage</span>
+            <span className="text-sm text-gray-500">
+              {user?.automations_used}/{user?.automations_limit} automations
+            </span>
           </div>
-        )}
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full ${
+                usagePercentage >= 80 ? 'bg-red-600' : usagePercentage >= 60 ? 'bg-yellow-600' : 'bg-blue-600'
+              }`}
+              style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+            ></div>
+          </div>
+          {usagePercentage >= 80 && (
+            <p className="text-sm text-red-600 mt-2">
+              You're running low on automations. <Link to="/pricing" className="underline">Consider upgrading</Link>.
+            </p>
+          )}
+        </div>
 
         {/* Create Automation Form */}
         {showCreateForm && (
