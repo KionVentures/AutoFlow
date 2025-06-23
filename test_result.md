@@ -101,3 +101,145 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the AutoFlow AI backend API endpoints to ensure they're working correctly"
+
+backend:
+  - task: "API Health Check"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/ endpoint returns 200 OK with expected JSON response containing message and version fields."
+
+  - task: "User Registration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/register successfully creates a new user and returns a valid JWT token along with user details."
+
+  - task: "User Login"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/auth/login successfully authenticates a user with valid credentials and returns a JWT token."
+
+  - task: "Get Current User"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/me successfully returns the current user's information when provided with a valid JWT token."
+
+  - task: "Protected Endpoint Authentication"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Protected endpoints return 403 instead of 401 when no token is provided. Expected 401 Unauthorized but got 403 Forbidden."
+
+  - task: "Guest Automation Generation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/generate-automation-guest successfully generates an automation without requiring authentication. Response contains all expected fields."
+
+  - task: "Authenticated Automation Generation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "POST /api/generate-automation successfully generates an automation for authenticated users. Response contains all expected fields including user_id."
+
+  - task: "Get User Automations"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "GET /api/my-automations successfully returns a list of the user's automations. Each automation contains all expected fields."
+
+  - task: "Input Validation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "API properly validates input and returns appropriate error responses (422) when required fields are missing."
+
+frontend:
+  - task: "Frontend Implementation"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Frontend testing not performed as per instructions."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Protected Endpoint Authentication"
+  stuck_tasks:
+    - "Protected Endpoint Authentication"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "I've completed testing of all backend API endpoints. All endpoints are working correctly except for the Protected Endpoint Authentication, which returns a 403 status code instead of the expected 401 when no token is provided. This is a minor issue but should be fixed for proper HTTP status code semantics. All other functionality is working as expected, including user registration, login, automation generation (both guest and authenticated), and retrieving user automations."
