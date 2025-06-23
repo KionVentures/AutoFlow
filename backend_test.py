@@ -34,7 +34,8 @@ TEST_USER = {
 TEST_AUTOMATION_REQUEST = {
     "task_description": "When someone fills out my contact form, send them a welcome email",
     "platform": "Make.com",
-    "ai_model": "gpt-4"
+    "ai_model": "gpt-4",
+    "user_email": generate_random_email()
 }
 
 # Template test data
