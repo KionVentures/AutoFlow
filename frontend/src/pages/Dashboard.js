@@ -101,9 +101,7 @@ const Dashboard = () => {
     return <Navigate to="/login" />;
   }
 
-  const usagePercentage = user?.automations_limit === -1 
-    ? 0 
-    : (user?.automations_used / user?.automations_limit) * 100;
+  const usagePercentage = (user?.automations_used / user?.automations_limit) * 100;
 
   const canCreateMore = user?.subscription_tier === 'creator' || 
     (user?.automations_used < user?.automations_limit);
