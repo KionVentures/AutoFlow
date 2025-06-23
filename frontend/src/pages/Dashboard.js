@@ -158,7 +158,7 @@ const Dashboard = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Usage This Month</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {user?.automations_limit === -1 ? 'Unlimited' : `${user?.automations_used}/${user?.automations_limit}`}
+                  {user?.automations_used}/{user?.automations_limit}
                 </p>
               </div>
             </div>
