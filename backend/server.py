@@ -1714,7 +1714,7 @@ def enhance_setup_instructions(base_instructions: str, platform: PlatformType) -
     return base_instructions + "\n\n" + platform_guide
 
 async def generate_automation_with_ai(task_description: str, platform: PlatformType, ai_model: AIModel) -> dict:
-    """Generate automation using specified AI model"""
+    """Generate automation using specified AI model with accurate importable JSON"""
     
     # Check if this is a template request first
     is_template, template_name = is_template_request(task_description)
