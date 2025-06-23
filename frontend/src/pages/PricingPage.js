@@ -74,7 +74,7 @@ const PricingPage = () => {
       period: 'per month',
       description: 'Great for small businesses and entrepreneurs',
       features: [
-        '10 automations per month',
+        '5 automations per month',
         'Make.com & n8n templates',
         'JSON download',
         'Detailed setup guides',
@@ -90,11 +90,11 @@ const PricingPage = () => {
     {
       name: 'Creator',
       tier: 'creator',
-      price: '$49',
+      price: '$99',
       period: 'per month',
       description: 'Best for agencies and power users',
       features: [
-        'Unlimited automations',
+        '50 automations per month',
         'Make.com & n8n templates',
         'JSON download',
         'Advanced setup guides',
