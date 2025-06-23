@@ -127,8 +127,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 def get_tier_limits(tier: SubscriptionTier) -> int:
     limits = {
         SubscriptionTier.FREE: 1,
-        SubscriptionTier.PRO: 10,
-        SubscriptionTier.CREATOR: -1  # Unlimited
+        SubscriptionTier.PRO: 5,
+        SubscriptionTier.CREATOR: 50
     }
     return limits[tier]
 
