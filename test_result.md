@@ -513,12 +513,11 @@ frontend:
 metadata:
   created_by: "testing_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Frontend User Flow Testing"
     - "End-to-End Automation Generation"
   stuck_tasks:
     - "Protected Endpoint Authentication"
