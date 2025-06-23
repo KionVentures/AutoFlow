@@ -103,8 +103,7 @@ const Dashboard = () => {
 
   const usagePercentage = (user?.automations_used / user?.automations_limit) * 100;
 
-  const canCreateMore = user?.subscription_tier === 'creator' || 
-    (user?.automations_used < user?.automations_limit);
+  const canCreateMore = user?.automations_used < user?.automations_limit;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
