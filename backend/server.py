@@ -1714,6 +1714,190 @@ def enhance_setup_instructions(base_instructions: str, platform: PlatformType) -
     
     return base_instructions + "\n\n" + platform_guide
 
+async def generate_complex_automation(task_description: str, platform: PlatformType, ai_model: AIModel) -> dict:
+    """Generate complex automation with accurate, importable JSON using real module names"""
+    
+    # Enhanced system prompt for accurate JSON generation
+    system_prompt = f"""You are an expert {platform} automation engineer. You must generate REAL, IMPORTABLE JSON that works in {platform}.
+
+CRITICAL REQUIREMENTS:
+1. Use ONLY real {platform} module names from the official documentation
+2. Generate complete, valid JSON that can be imported directly
+3. Include proper connections, parameters, and metadata
+4. Use actual field names and structures that {platform} expects
+5. Ensure all modules exist and are correctly configured
+
+REAL MODULE NAMES TO USE:
+For Make.com: google-sheets:watchRows, openai-gpt:createChatCompletion, openai-dall-e:createImage, wordpress:createPost, instagram:createMediaObject, tiktok:uploadVideo, youtube:uploadVideo
+For n8n: n8n-nodes-base.googleSheetsTrigger, n8n-nodes-base.openAi, n8n-nodes-base.wordpress, n8n-nodes-base.httpRequest
+
+RESPOND WITH WORKING JSON ONLY - NO EXPLANATIONS."""
+
+    if platform == PlatformType.MAKE:
+        user_prompt = f"""Generate a complete Make.com scenario JSON for: {task_description}
+
+Structure required:
+{{
+  "name": "Scenario Name",
+  "flow": [
+    {{
+      "id": 1,
+      "module": "google-sheets:watchRows",
+      "version": 1,
+      "parameters": {{
+        "spreadsheetId": "{{{{connection.spreadsheetId}}}}",
+        "worksheetId": "gid=0",
+        "includeEmptyRows": false
+      }},
+      "mapper": {{}},
+      "metadata": {{
+        "designer": {{"x": 0, "y": 0}}
+      }}
+    }}
+  ],
+  "metadata": {{
+    "instant": false,
+    "version": 1,
+    "scenario": {{
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "sequential": false
+    }}
+  }}
+}}
+
+Generate the complete workflow with proper module IDs (1, 2, 3...), real module names, and proper connections."""
+
+    else:  # n8n
+        user_prompt = f"""Generate a complete n8n workflow JSON for: {task_description}
+
+Structure required:
+{{
+  "name": "Workflow Name",
+  "nodes": [
+    {{
+      "parameters": {{
+        "spreadsheetId": "{{{{ $credentials.spreadsheetId }}}}",
+        "sheetName": "Sheet1"
+      }},
+      "name": "Google Sheets Trigger",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    }}
+  ],
+  "connections": {{
+    "Google Sheets Trigger": {{
+      "main": [["Next Node"]]
+    }}
+  }},
+  "active": false,
+  "settings": {{}}
+}}
+
+Generate the complete workflow with real node types and proper connections."""
+
+    try:
+        if ai_model == AIModel.GPT4:
+            client = openai.OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=4000,
+                temperature=0.1  # Very low temperature for consistent, accurate output
+            )
+            raw_json = response.choices[0].message.content.strip()
+            
+        else:  # Claude
+            response = anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                temperature=0.1,
+                messages=[
+                    {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"}
+                ]
+            )
+            raw_json = response.content[0].text.strip()
+        
+        # Clean and validate JSON
+        raw_json = raw_json.replace('```json', '').replace('```', '').strip()
+        
+        # Validate JSON structure
+        try:
+            parsed_json = json.loads(raw_json)
+            
+            # Validate platform-specific structure
+            if platform == PlatformType.MAKE and "flow" not in parsed_json:
+                raise ValueError("Make.com JSON must have 'flow' property")
+            elif platform == PlatformType.N8N and "nodes" not in parsed_json:
+                raise ValueError("n8n JSON must have 'nodes' property")
+                
+            # Re-serialize with proper formatting
+            validated_json = json.dumps(parsed_json, indent=2)
+            
+            return {
+                "automation_json": validated_json,
+                "is_valid": True
+            }
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logging.error(f"Generated JSON validation failed: {e}")
+            
+            # Return fallback JSON structure
+            if platform == PlatformType.MAKE:
+                fallback_json = {
+                    "name": "Generated Automation",
+                    "flow": [
+                        {
+                            "id": 1,
+                            "module": "webhook:webhook",
+                            "version": 1,
+                            "parameters": {},
+                            "mapper": {},
+                            "metadata": {"designer": {"x": 0, "y": 0}}
+                        }
+                    ],
+                    "metadata": {
+                        "instant": False,
+                        "version": 1,
+                        "scenario": {
+                            "roundtrips": 1,
+                            "maxErrors": 3,
+                            "autoCommit": True,
+                            "sequential": False
+                        }
+                    }
+                }
+            else:  # n8n
+                fallback_json = {
+                    "name": "Generated Automation",
+                    "nodes": [
+                        {
+                            "parameters": {},
+                            "name": "Start",
+                            "type": "n8n-nodes-base.start",
+                            "typeVersion": 1,
+                            "position": [240, 300]
+                        }
+                    ],
+                    "connections": {},
+                    "active": False,
+                    "settings": {}
+                }
+            
+            return {
+                "automation_json": json.dumps(fallback_json, indent=2),
+                "is_valid": False
+            }
+            
+    except Exception as e:
+        logging.error(f"Error generating complex automation: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate automation: {str(e)}")
+
 async def generate_automation_with_ai(task_description: str, platform: PlatformType, ai_model: AIModel) -> dict:
     """Generate automation using specified AI model with accurate importable JSON"""
     
@@ -1732,7 +1916,7 @@ async def generate_automation_with_ai(task_description: str, platform: PlatformT
             "template_id": template_data["id"]
         }
     
-    # Generate custom automation using AI with improved prompt
+    # For complex automations, use the specialized function for JSON generation
     platform_examples = {
         PlatformType.MAKE: '''Example Make.com JSON format with REAL working modules:
 {
