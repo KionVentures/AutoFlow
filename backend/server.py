@@ -1872,12 +1872,28 @@ async def generate_automation(request: AutomationRequest, current_user: User = D
 
 @api_router.post("/generate-automation-guest", response_model=AutomationResponse)
 async def generate_automation_guest(request: AutomationRequest):
-    """Generate automation for guest users (free tier, no auth required)"""
+    """Generate automation for guest users with required email for lead capture"""
+    
+    # Store lead information for future marketing (you could add to a leads collection)
+    lead_data = {
+        "email": request.user_email,
+        "task_description": request.task_description,
+        "platform": request.platform,
+        "ai_model": request.ai_model,
+        "created_at": datetime.utcnow(),
+        "source": "guest_automation"
+    }
+    
+    # Optional: Save lead to database for marketing purposes
+    try:
+        await db.leads.insert_one(lead_data)
+    except Exception as e:
+        logging.warning(f"Failed to save lead data: {e}")
     
     # Generate automation using specified AI
     automation_data = await generate_automation_with_ai(request.task_description, request.platform, request.ai_model)
     
-    # Create automation record (no user_id for guests)
+    # Create automation record (no user_id for guests, but include email)
     automation = AutomationResponse(
         user_id=None,
         task_description=request.task_description,
@@ -1893,8 +1909,10 @@ async def generate_automation_guest(request: AutomationRequest):
         template_id=automation_data["template_id"]
     )
     
-    # Save to database (for analytics)
-    await db.automations.insert_one(automation.dict())
+    # Save to database (for analytics, include email in metadata)
+    automation_dict = automation.dict()
+    automation_dict["guest_email"] = request.user_email  # Track guest email
+    await db.automations.insert_one(automation_dict)
     
     return automation
 
