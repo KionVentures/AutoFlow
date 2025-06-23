@@ -415,11 +415,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "testing"
         comment: "Protected endpoints return 403 instead of 401 when no token is provided. Expected 401 Unauthorized but got 403 Forbidden."
+      - working: false
+        agent: "testing"
+        comment: "Confirmed that protected endpoints still return 403 instead of 401 when no token is provided. This is a minor issue with HTTP status code semantics but doesn't affect core functionality."
 
   - task: "Guest Automation Generation"
     implemented: true
