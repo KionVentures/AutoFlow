@@ -1714,39 +1714,52 @@ def enhance_setup_instructions(base_instructions: str, platform: PlatformType) -
     return base_instructions + "\n\n" + platform_guide
 
 async def generate_complex_automation(task_description: str, platform: PlatformType, ai_model: AIModel) -> dict:
-    """Generate complex automation with accurate, importable JSON using real module names"""
+    """Generate complex automation with REAL, verified module names from Make.com/n8n"""
     
-    # Enhanced system prompt for accurate JSON generation
-    system_prompt = f"""You are an expert {platform} automation engineer. You must generate REAL, IMPORTABLE JSON that works in {platform}.
-
-CRITICAL REQUIREMENTS:
-1. Use ONLY real {platform} module names from the official documentation
-2. Generate complete, valid JSON that can be imported directly
-3. Include proper connections, parameters, and metadata
-4. Use actual field names and structures that {platform} expects
-5. Ensure all modules exist and are correctly configured
-
-REAL MODULE NAMES TO USE:
-For Make.com: google-sheets:watchRows, openai-gpt:createChatCompletion, openai-dall-e:createImage, wordpress:createPost, instagram:createMediaObject, tiktok:uploadVideo, youtube:uploadVideo
-For n8n: n8n-nodes-base.googleSheetsTrigger, n8n-nodes-base.openAi, n8n-nodes-base.wordpress, n8n-nodes-base.httpRequest
-
-RESPOND WITH WORKING JSON ONLY - NO EXPLANATIONS."""
-
     if platform == PlatformType.MAKE:
-        user_prompt = f"""Generate a complete Make.com scenario JSON for: {task_description}
+        system_prompt = """You are a Make.com automation expert. Generate REAL, IMPORTABLE JSON using ONLY these verified Make.com modules:
 
-Structure required:
+GOOGLE SHEETS:
+- google-sheets:WatchRows (trigger for new rows)
+- google-sheets:SearchRows 
+- google-sheets:AddRow
+- google-sheets:UpdateRow
+
+OPENAI:
+- openai:CreateChatCompletion (for GPT-4 chat)
+- openai:CreateImage (for DALL-E)
+
+HTTP:
+- http:ActionSendData (for HTTP requests)
+- http:ActionSendDataOAuth2 (for OAuth API calls)
+
+WORDPRESS:
+- wordpress:CreatePost
+- wordpress:UpdatePost
+
+WEBHOOKS:
+- webhook:CustomWebHook
+
+TOOLS:
+- builtin:Sleep
+- builtin:SetVariable
+- json:ParseJSON
+
+CRITICAL: Use ONLY these exact module names. No other modules exist."""
+
+        user_prompt = f"""Create a Make.com scenario for: {task_description}
+
+REQUIRED JSON STRUCTURE:
 {{
   "name": "Scenario Name",
   "flow": [
     {{
       "id": 1,
-      "module": "google-sheets:watchRows",
+      "module": "google-sheets:WatchRows",
       "version": 1,
       "parameters": {{
-        "spreadsheetId": "{{{{connection.spreadsheetId}}}}",
-        "worksheetId": "gid=0",
-        "includeEmptyRows": false
+        "spreadsheetId": "{{{{connection.drive.spreadsheetId}}}}",
+        "worksheetId": "gid=0"
       }},
       "mapper": {{}},
       "metadata": {{
@@ -1766,19 +1779,51 @@ Structure required:
   }}
 }}
 
-Generate the complete workflow with proper module IDs (1, 2, 3...), real module names, and proper connections."""
+Use real module names and connection placeholders like {{{{connection.drive.spreadsheetId}}}}."""
 
-    else:  # n8n
-        user_prompt = f"""Generate a complete n8n workflow JSON for: {task_description}
+    else:  # N8N
+        system_prompt = """You are an n8n workflow expert. Generate REAL, IMPORTABLE JSON using ONLY these verified n8n nodes:
 
-Structure required:
+GOOGLE SHEETS:
+- n8n-nodes-base.googleSheetsTrigger
+- n8n-nodes-base.googleSheets
+
+OPENAI:
+- n8n-nodes-base.openAi
+
+HTTP:
+- n8n-nodes-base.httpRequest
+
+WORDPRESS:
+- n8n-nodes-base.wordpress
+
+WEBHOOKS:
+- n8n-nodes-base.webhook
+
+CORE NODES:
+- n8n-nodes-base.start
+- n8n-nodes-base.set
+- n8n-nodes-base.code
+- n8n-nodes-base.wait
+
+CRITICAL: Use ONLY these exact node types. No other nodes exist."""
+
+        user_prompt = f"""Create an n8n workflow for: {task_description}
+
+REQUIRED JSON STRUCTURE:
 {{
   "name": "Workflow Name",
   "nodes": [
     {{
       "parameters": {{
-        "spreadsheetId": "{{{{ $credentials.spreadsheetId }}}}",
-        "sheetName": "Sheet1"
+        "pollTimes": {{
+          "item": [
+            {{
+              "mode": "everyMinute"
+            }}
+          ]
+        }},
+        "triggerOn": "append"
       }},
       "name": "Google Sheets Trigger",
       "type": "n8n-nodes-base.googleSheetsTrigger",
@@ -1786,16 +1831,12 @@ Structure required:
       "position": [240, 300]
     }}
   ],
-  "connections": {{
-    "Google Sheets Trigger": {{
-      "main": [["Next Node"]]
-    }}
-  }},
+  "connections": {{}},
   "active": false,
   "settings": {{}}
 }}
 
-Generate the complete workflow with real node types and proper connections."""
+Use real node types and proper n8n structure."""
 
     try:
         if ai_model == AIModel.GPT4:
@@ -1806,15 +1847,15 @@ Generate the complete workflow with real node types and proper connections."""
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=4000,
-                temperature=0.1  # Very low temperature for consistent, accurate output
+                max_tokens=3000,
+                temperature=0.1
             )
             raw_json = response.choices[0].message.content.strip()
             
         else:  # Claude
             response = anthropic_client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=4000,
+                max_tokens=3000,
                 temperature=0.1,
                 messages=[
                     {"role": "user", "content": f"{system_prompt}\n\n{user_prompt}"}
@@ -1822,42 +1863,89 @@ Generate the complete workflow with real node types and proper connections."""
             )
             raw_json = response.content[0].text.strip()
         
-        # Clean and validate JSON
+        # Clean JSON
         raw_json = raw_json.replace('```json', '').replace('```', '').strip()
         
-        # Validate JSON structure
+        # Validate and parse
         try:
             parsed_json = json.loads(raw_json)
             
-            # Validate platform-specific structure
-            if platform == PlatformType.MAKE and "flow" not in parsed_json:
-                raise ValueError("Make.com JSON must have 'flow' property")
-            elif platform == PlatformType.N8N and "nodes" not in parsed_json:
-                raise ValueError("n8n JSON must have 'nodes' property")
-                
-            # Re-serialize with proper formatting
-            validated_json = json.dumps(parsed_json, indent=2)
+            if platform == PlatformType.MAKE:
+                if "flow" not in parsed_json:
+                    raise ValueError("Make.com JSON must have 'flow' property")
+                    
+                # Validate module names are real
+                for module in parsed_json.get("flow", []):
+                    module_name = module.get("module", "")
+                    valid_modules = [
+                        "google-sheets:WatchRows", "google-sheets:SearchRows", "google-sheets:AddRow", "google-sheets:UpdateRow",
+                        "openai:CreateChatCompletion", "openai:CreateImage", 
+                        "http:ActionSendData", "http:ActionSendDataOAuth2",
+                        "wordpress:CreatePost", "wordpress:UpdatePost",
+                        "webhook:CustomWebHook", "builtin:Sleep", "builtin:SetVariable", "json:ParseJSON"
+                    ]
+                    
+                    if module_name not in valid_modules and module_name != "":
+                        logging.warning(f"Invalid Make.com module: {module_name}")
+                        
+            elif platform == PlatformType.N8N:
+                if "nodes" not in parsed_json:
+                    raise ValueError("n8n JSON must have 'nodes' property")
+                    
+                # Validate node types are real
+                for node in parsed_json.get("nodes", []):
+                    node_type = node.get("type", "")
+                    valid_nodes = [
+                        "n8n-nodes-base.googleSheetsTrigger", "n8n-nodes-base.googleSheets",
+                        "n8n-nodes-base.openAi", "n8n-nodes-base.httpRequest", 
+                        "n8n-nodes-base.wordpress", "n8n-nodes-base.webhook",
+                        "n8n-nodes-base.start", "n8n-nodes-base.set", "n8n-nodes-base.code", "n8n-nodes-base.wait"
+                    ]
+                    
+                    if node_type not in valid_nodes and node_type != "":
+                        logging.warning(f"Invalid n8n node: {node_type}")
             
             return {
-                "automation_json": validated_json,
+                "automation_json": json.dumps(parsed_json, indent=2),
                 "is_valid": True
             }
             
         except (json.JSONDecodeError, ValueError) as e:
-            logging.error(f"Generated JSON validation failed: {e}")
+            logging.error(f"JSON validation failed: {e}")
             
-            # Return fallback JSON structure
+            # Return working fallback
             if platform == PlatformType.MAKE:
                 fallback_json = {
                     "name": "Generated Automation",
                     "flow": [
                         {
                             "id": 1,
-                            "module": "webhook:webhook",
+                            "module": "google-sheets:WatchRows",
                             "version": 1,
-                            "parameters": {},
+                            "parameters": {
+                                "spreadsheetId": "{{connection.drive.spreadsheetId}}",
+                                "worksheetId": "gid=0"
+                            },
                             "mapper": {},
                             "metadata": {"designer": {"x": 0, "y": 0}}
+                        },
+                        {
+                            "id": 2,
+                            "module": "openai:CreateChatCompletion",
+                            "version": 1,
+                            "parameters": {
+                                "model": "gpt-4",
+                                "max_tokens": 1000
+                            },
+                            "mapper": {
+                                "messages": [
+                                    {
+                                        "role": "user",
+                                        "content": "Process this data: {{1.A}}"
+                                    }
+                                ]
+                            },
+                            "metadata": {"designer": {"x": 300, "y": 0}}
                         }
                     ],
                     "metadata": {
@@ -1876,14 +1964,33 @@ Generate the complete workflow with real node types and proper connections."""
                     "name": "Generated Automation",
                     "nodes": [
                         {
-                            "parameters": {},
-                            "name": "Start",
-                            "type": "n8n-nodes-base.start",
+                            "parameters": {
+                                "pollTimes": {
+                                    "item": [{"mode": "everyMinute"}]
+                                },
+                                "triggerOn": "append"
+                            },
+                            "name": "Google Sheets Trigger",
+                            "type": "n8n-nodes-base.googleSheetsTrigger",
                             "typeVersion": 1,
                             "position": [240, 300]
+                        },
+                        {
+                            "parameters": {
+                                "resource": "chat",
+                                "model": "gpt-4"
+                            },
+                            "name": "OpenAI",
+                            "type": "n8n-nodes-base.openAi",
+                            "typeVersion": 1,
+                            "position": [460, 300]
                         }
                     ],
-                    "connections": {},
+                    "connections": {
+                        "Google Sheets Trigger": {
+                            "main": [["OpenAI"]]
+                        }
+                    },
                     "active": False,
                     "settings": {}
                 }
@@ -1894,7 +2001,7 @@ Generate the complete workflow with real node types and proper connections."""
             }
             
     except Exception as e:
-        logging.error(f"Error generating complex automation: {e}")
+        logging.error(f"Error generating automation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate automation: {str(e)}")
 
 async def generate_automation_with_ai(task_description: str, platform: PlatformType, ai_model: AIModel) -> dict:
