@@ -1756,12 +1756,38 @@ async def root():
             "satisfaction_rate": satisfaction_rate
         }
     except Exception as e:
-        return {
-            "total_automations": 1000,
-            "total_leads": 500,
-            "total_users": 200,
-            "satisfaction_rate": 4.9
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/create-checkout-session")
+async def create_checkout_session(request: StripeCheckoutRequest):
+    try:
+        prices = {
+            SubscriptionTier.PRO: "price_1QxxxxxxxxxxxxxxxxxxxPro",  # Replace with actual Stripe price ID
+            SubscriptionTier.CREATOR: "price_1QxxxxxxxxxxxxxxxxxxxCreator"  # Replace with actual Stripe price ID
         }
+        
+        if request.tier not in prices:
+            raise HTTPException(status_code=400, detail="Invalid subscription tier")
+        
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': prices[request.tier],
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url='https://your-domain.com/success?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url='https://your-domain.com/pricing',
+            customer_email=request.user_email,
+            metadata={
+                'tier': request.tier,
+                'user_email': request.user_email
+            }
+        )
+        
+        return {"checkout_url": checkout_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/templates")
 async def get_templates():
