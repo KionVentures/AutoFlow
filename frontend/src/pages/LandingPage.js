@@ -188,7 +188,7 @@ const LandingPage = () => {
 
                   <div>
                     <label className="block text-left text-lg font-medium text-gray-700 mb-3">
-                      Email (optional)
+                      Email Address *
                     </label>
                     <input
                       type="email"
@@ -196,6 +196,7 @@ const LandingPage = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="your@email.com"
                       className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-gray-800"
+                      required
                     />
                   </div>
                 </div>
