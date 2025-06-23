@@ -17,6 +17,7 @@ import anthropic
 import stripe
 import json
 from enum import Enum
+from automation_builder import generate_make_json, generate_n8n_json, MAKE_MODULES, N8N_MODULES
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
