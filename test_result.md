@@ -545,11 +545,14 @@ backend:
     file: "pages/PricingPage.js"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated pricing page to show new tiers: Pro 5 automations/$19, Creator 50 automations/$99."
+      - working: true
+        agent: "testing"
+        comment: "Verified pricing page displays updated tiers correctly: Free ($0, 1 automation), Pro ($19/month, 5 automations), and Creator ($99/month, 50 automations). All tier information and upgrade buttons display correctly."
 
   - task: "Dashboard Usage Tracking Updates"
     implemented: true
@@ -557,10 +560,13 @@ backend:
     file: "pages/Dashboard.js"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Updated dashboard to show usage tracking for all tiers including new limits."
+      - working: true
+        agent: "testing"
+        comment: "Dashboard correctly displays usage tracking with updated limits. Progress bar shows usage percentage correctly. Free tier shows 0/1 automations, and appropriate upgrade prompts appear."
   - agent: "testing"
     message: "I've completed testing of all backend API endpoints. All endpoints are working correctly except for the Protected Endpoint Authentication, which returns a 403 status code instead of the expected 401 when no token is provided. This is a minor issue but should be fixed for proper HTTP status code semantics. All other functionality is working as expected, including user registration, login, automation generation (both guest and authenticated), and retrieving user automations."
