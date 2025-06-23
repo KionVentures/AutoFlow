@@ -84,7 +84,7 @@ class AutomationRequest(BaseModel):
     task_description: str
     platform: PlatformType = PlatformType.MAKE
     ai_model: AIModel = AIModel.GPT4
-    user_email: Optional[EmailStr] = None
+    user_email: EmailStr  # Made required for lead capture
 
 class AutomationTemplate(BaseModel):
     id: str
