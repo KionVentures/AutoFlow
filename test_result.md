@@ -537,8 +537,58 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "testing"
+    message: "Successfully tested email validation requirements for lead capture. All tests passed: 1) Email validation works correctly - missing email, empty email, and invalid email format all return 422 validation errors. 2) Valid email submissions succeed and store lead data. 3) Stats endpoint correctly returns total_leads count. 4) Backward compatibility is maintained - authenticated users can still generate automations without issues."
 
 backend:
+  - task: "Email Validation for Guest Automation"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested email validation for guest automation. POST /api/generate-automation-guest without email field returns 422 validation error. Empty email returns 422 validation error. Invalid email format returns 422 validation error. Valid email succeeds and returns 200 OK with proper automation data."
+
+  - task: "Lead Capture Functionality"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Successfully verified that valid email is stored in leads collection. The stats endpoint shows total_leads count increasing after guest automation generation. Lead data includes email, task_description, platform, ai_model, created_at, and source as required."
+
+  - task: "Stats Endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested GET /api/stats endpoint. It returns 200 OK with JSON containing total_automations, total_leads, total_users, and satisfaction_rate as required."
+
+  - task: "Backward Compatibility"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Successfully verified that authenticated user automation generation still works with the new email requirement changes. Authenticated users can still generate automations and use templates without any issues."
+
   - task: "Stripe Integration Setup"
     implemented: true
     working: true
